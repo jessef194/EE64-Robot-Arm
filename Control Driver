@@ -1,0 +1,110 @@
+/* 
+EE64 Robotic Arm Final Project
+
+Jesse Fonseca, Ruben Carrazco
+
+Manual Arm Controls
+Inputs are [(0-5), (s/r/f)] e.g. '4f', 
+The first value chooses the motor or servo (5), and the second describes the action (stop, reverse, forward),
+forward grabs and reverse/stop releases with servo
+*/
+
+#include <Servo.h>
+
+Servo gripper; // Creates servo object
+
+int grabPos = 132; // in degrees
+int releasePos = 40;
+
+// Order is as follows:
+int outputPins[] = {30, 31, // 360 rotation motor
+                    32, 33, // linear actuator
+                    34, 35, // shoulder motor
+                    36, 37, // elbow motor
+                    38, 39, // 360 grabber motor
+                    40}; // servo grip
+
+String stop = String('s');
+String forward = String('f'); // Creates strings for input validity comparisons
+String reverse = String('r');
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Setup complete");
+  Serial.setTimeout(100);
+
+  // Configure all the motors to outputs
+  // Put them all in "stop"
+  for (int i = 0; i < 9; i += 2){
+    pinMode(outputPins[i], OUTPUT);
+    pinMode(outputPins[i+1], OUTPUT);
+    digitalWrite(outputPins[i], LOW);
+    digitalWrite(outputPins[i+1], LOW);
+  }
+  gripper.attach(40);
+
+} 
+
+// function movement: Handles all general movement for the motors 0-4 94
+void movement(int motor, char action){ 
+  // Standard Movement
+  if (action == 's'){
+    digitalWrite(outputPins[motor * 2], LOW);
+    digitalWrite(outputPins[motor * 2 + 1], LOW);
+  }
+  if (action == 'f'){
+    digitalWrite(outputPins[motor * 2], HIGH);
+    digitalWrite(outputPins[motor * 2 + 1], LOW);
+  }
+  if (action == 'r'){
+    digitalWrite(outputPins[motor * 2], LOW);
+    digitalWrite(outputPins[motor * 2 + 1], HIGH);
+  }
+    // Special Delay for 360 grabber motor because of the high rpm
+  if (motor == 3){
+    delay(100);
+    digitalWrite(outputPins[motor * 2], LOW);
+    digitalWrite(outputPins[motor * 2 + 1], LOW);
+  }
+}
+
+void grab(){
+  gripper.write(grabPos);
+}
+
+void release(){
+  gripper.write(releasePos);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  int motor = 8;
+  String action = String('s');
+
+  if (Serial.available()){
+    motor = Serial.parseInt();
+    action = Serial.readString();
+
+    Serial.println(motor); // Print to Serial Monitor to give feedback about input
+    Serial.println(action);
+    action.trim();
+
+    if (motor < 0 || motor > 5){
+      Serial.println("Invalid motor, please choose a motor between 0-5");
+      return;
+    }
+
+    if (!(action.equals(stop) || action.equals(forward) || action.equals(reverse))){
+      Serial.println("Invalid action, please choose an action: (f)orward, (r)everse, or (s)top");
+      return;
+    }
+
+    if (motor == 5 && action.equals(forward)){
+      grab();
+    } else if (motor == 5 && !action.equals(forward)){
+      release();
+    }
+    movement(motor, action.charAt(0));
+  }
+
+}
